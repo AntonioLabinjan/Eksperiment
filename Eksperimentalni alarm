@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ALARM</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f2f2f2;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    input[type="date"] {
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    p#rezultat {
+      font-size: 18px;
+      margin-top: 20px;
+      color: #333;
+    }
+
+    @keyframes fadeInOut {
+      0% { opacity: 0; }
+      50% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    p#rezultat.show-animation {
+      animation: fadeInOut 2s ease-in-out;
+    }
+  </style>
+</head>
+<body>
+  <center><h1>SET AN ALARM: </h1></center>
+  <center>
+    <label for="datum">Set date for your alarm: </label>
+    <input type="date" id="datum">
+    <label for="vrijeme">Set time for your alarm: </label>
+    <input type="time" id="vrijeme">
+  </center>
+  <center>
+    <button onclick="startCountdown()">SET ALARM</button>
+  </center>
+  <div id="alarmsContainer"></div>
+  <audio id="audio" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>
+
+  <script>
+    let countdownIntervals = [];
+    let audioElement;
+    const alarms = [];
+    let alarmIdCounter = 1;
+
+    function startCountdown() {
+      const unosDatum = new Date(document.getElementById('datum').value);
+      const unosVrijeme = document.getElementById('vrijeme').value;
+
+      if (isNaN(unosDatum) || unosVrijeme === '') {
+        alert("Please, enter a valid date and time!");
+        return;
+      }
+
+      const unosVrijemeArray = unosVrijeme.split(":");
+      const unosSat = parseInt(unosVrijemeArray[0]);
+      const unosMinuta = parseInt(unosVrijemeArray[1]);
+
+      const unosDatumVrijeme = new Date(unosDatum);
+      unosDatumVrijeme.setHours(unosSat, unosMinuta, 0, 0);
+
+      if (isAlarmAlreadySet(unosDatumVrijeme)) {
+        alert("Alarm for the selected date and time already exists!");
+        return;
+      }
+
+      const alarm = {
+        id: alarmIdCounter,
+        displayId: alarmIdCounter,
+        date: unosDatumVrijeme.toLocaleDateString(),
+        time: unosDatumVrijeme.toLocaleTimeString(),
+      };
+
+      alarms.push(alarm);
+
+      const alarmResultElement = document.createElement('p');
+      alarmResultElement.setAttribute('class', 'alarm-result');
+      alarmResultElement.setAttribute('id', `alarmResult_${alarmIdCounter}`);
+      document.getElementById('alarmsContainer').appendChild(alarmResultElement);
+
+      const rezultatElement = document.getElementById(`alarmResult_${alarmIdCounter}`);
+
+      const intervalId = setInterval(function () {
+        const danas = new Date();
+        const razlika = unosDatumVrijeme.getTime() - danas.getTime();
+
+        if (razlika <= 0) {
+          clearInterval(intervalId);
+          rezultatElement.textContent = "Your alarm has expired!";
+          audioElement = document.getElementById('audio');
+          audioElement.play();
+        } else {
+          const preostaloDana = Math.floor(razlika / (1000 * 3600 * 24));
+          const preostaloSati = Math.floor((razlika % (1000 * 3600 * 24)) / (1000 * 3600));
+          const preostaleMinute = Math.floor((razlika % (1000 * 3600)) / (1000 * 60));
+          const preostaleSekunde = Math.floor((razlika % (1000 * 60)) / 1000);
+
+          rezultatElement.textContent = `Time left until ${unosDatumVrijeme.toLocaleString()}: ${preostaloDana} days, ${preostaloSati} hours, ${preostaleMinute} minutes, ${preostaleSekunde} seconds.`;
+        }
+      }, 1000);
+
+      countdownIntervals.push({ id: alarmIdCounter, interval: intervalId });
+
+      const alarmControls = document.createElement('div');
+      alarmControls.setAttribute('id', `alarmControls_${alarmIdCounter}`);
+      const stopButton = document.createElement('button');
+      stopButton.textContent = 'STOP ALARM';
+      stopButton.onclick = function () {
+        stopAlarm(alarmIdCounter);
+      };
+      const deleteButton = document.createElement('button');
+      deleteButton.textContent = 'DELETE';
+      deleteButton.onclick = function () {
+        deleteAlarm(alarmIdCounter);
+      };
+
+      alarmControls.appendChild(stopButton);
+      alarmControls.appendChild(deleteButton);
+
+      document.getElementById('alarmsContainer').appendChild(alarmControls);
+
+      alarmIdCounter++;
+    }
+
+    function isAlarmAlreadySet(newAlarmDate) {
+      for (const alarm of alarms) {
+        const existingAlarmDate = new Date(alarm.date + ' ' + alarm.time);
+        if (existingAlarmDate.getTime() === newAlarmDate.getTime()) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function stopAlarm(alarmId) {
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.currentTime = 0;
+      }
+    }
+
+    function deleteAlarm(alarmId) {
+      const alarmIndex = alarms.findIndex((alarm) => alarm.id === alarmId);
+      if (alarmIndex === -1) {
+        console.error("Before deletion:", countdownIntervals.map(interval => interval.id));
+        console.error("Deleted ID:", alarmId);
+        console.error("After deletion:", alarms.map(alarm => alarm.id));
+        console.error("Alarm not found!");
+        return;
+      }
+
+      clearInterval(countdownIntervals[alarmIndex].interval);
+      const alarmResultElement = document.getElementById(`alarmResult_${alarmId}`);
+      if (alarmResultElement) {
+        alarmResultElement.remove();
+      }
+      const alarmControls = document.getElementById(`alarmControls_${alarmId}`);
+      if (alarmControls) {
+        alarmControls.remove();
+      }
+
+      countdownIntervals.splice(alarmIndex, 1);
+      alarms.splice(alarmIndex, 1);
+      updateAlarmIds();
+    }
+
+    function updateAlarmIds() {
+      const alarmResults = document.getElementsByClassName('alarm-result');
+      const alarmControls = document.getElementById('alarmsContainer').children;
+      console.log("Before update:", alarms);
+
+      for (let i = 0; i < alarmResults.length; i++) {
+        const alarmId = parseInt(alarmResults[i].getAttribute('id').split('_')[1]);
+        alarmResults[i].setAttribute('id', `alarmResult_${alarmId}`);
+        alarmControls[i].setAttribute('id', `alarmControls_${alarmId}`);
+        alarmControls[i].querySelector('button[data-action="delete"]').setAttribute('data-alarm-id', alarmId);
+      }
+
+      console.log("After update:", alarms);
+    }
+  </script>
+</body>
+</html>
